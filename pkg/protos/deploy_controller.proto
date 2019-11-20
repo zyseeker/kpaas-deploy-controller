@@ -26,20 +26,17 @@ service DeployContoller {
   rpc GetDeployResult(GetDeployResultRequest) returns (GetDeployResultReply) {}
 }
 
+message Auth {
+  // type could be ["password", "privatekey"]
+  string type = 1;
+  // credential stores the content of password or privatekey
+  string credential = 2;
+}
+
 // SSH contains the ssh login info.
 message SSH {
   uint32 port = 1;
   Auth auth = 2;
-
-  enum AuthType {
-    PASSWORD = 0;
-    PRIVATEKEY = 1;
-  }
-
-  message Auth {
-    AuthType type = 1;
-    string credential = 2;
-  }
 }
 
 // Node contains the node metadata info
@@ -47,6 +44,12 @@ message Node {
   string name = 1;
   string ip = 2;
   SSH ssh = 3;
+}
+
+message Error {
+  string reason = 1;
+  string detail = 2;
+  string fixMethods = 3;
 }
 
 // TestConnectionRequest contains the request of node connection testing.
@@ -57,39 +60,46 @@ message TestConnectionRequest {
 // TestConnectionReply contains the result of node connection testing.
 message TestConnectionReply {
   bool passed = 1;
-  string message = 2;
+  Error err = 2;
+}
+
+// NodeCheckConfig contains the pre-checking configuration for a node
+message NodeCheckConfig {
+  Node node = 1;
+  repeated string roles = 2;
 }
 
 // CheckNodesRequest contains the request of node pre-checking.
 message CheckNodesRequest {
-  repeated Node nodes = 1;
+  repeated NodeCheckConfig configs = 1;
 }
 
 // CheckNodesReply contains the result of node pre-checking.
 message CheckNodesReply {
   bool acceptd = 1;
-  string message = 2;
+  Error err = 2;
 }
 
 // CheckItem is a check item of node pre-checking
 message CheckItem {
-    string name = 1;
-    string description = 2;
+  string name = 1;
+  string description = 2;
 }
 
 // ItemCheckResult contains the pre-checking reuslt of an itme
 message ItemCheckResult {
-    CheckItem item = 1;
-    string status = 2;
-    string message = 3;
+  CheckItem item = 1;
+  string status = 2;
+  Error err = 3;
+  string logs = 4;
 }
 
 // ItemCheckResult contains the pre-checking reuslt of a node
 message NodeCheckResult {
-    string nodeName = 1;
-    string status = 2;
-    string message = 3;
-    repeated ItemCheckResult items = 4;
+  string nodeName = 1;
+  string status = 2;
+  Error err = 3;
+  repeated ItemCheckResult items = 4;
 }
 
 // GetCheckNodesResultRequest contains the request of getting nodes check result.
@@ -100,29 +110,44 @@ message GetCheckNodesResultRequest {
 // GetCheckNodesResultReply contains the result of nodes check
 message GetCheckNodesResultReply {
   string status = 1;
-  string message = 2;
+  Error err = 2;
   repeated NodeCheckResult nodes = 3;
+}
+
+message NodePortRange {
+  uint32 from = 1;
+  uint32 to = 2;
+}
+
+message Keepalived {
+  string vip = 1;
+  string netInterfaceName = 2;
+}
+
+message Locadbalancer {
+  string ip = 1;
+  uint32 port = 2;
+}
+
+// KubeAPIServerConnect contains the info of how to connect to k8s API server
+message KubeAPIServerConnect {
+  // type could be ["firstMasterIP", "keepalived", "locadbalancer"]
+  string type = 1;
+  Keepalived keepalived = 2;
+  Locadbalancer locadbalancer = 3;
 }
 
 // ClusterConfig contains the configuraton of a cluster
 message ClusterConfig {
   string clusterName = 1;
-  string netInterfaceName = 2;
+  KubeAPIServerConnect kubeAPIServerConnect = 2;
   NodePortRange nodePortRange = 3;
-  string vip = 4;
-  map<string, string> nodeLabels = 5;
-  map<string, string> nodeAnnotations = 6;
-
-  message NodePortRange {
-    uint32 from = 1;
-    uint32 to = 2;
-  }
-}
-
-enum NodeRoleType {
-  ETCD = 0;
-  MASTER = 1;
-  WORKER = 2;
+  map<string, string> nodeLabels = 4;
+  map<string, string> nodeAnnotations = 5;
+  string imageRepository = 6;
+  string podSubnet = 7;
+  string serviceSubnet = 8;
+  string kubernetesVersion = 9;
 }
 
 message Taint {
@@ -133,22 +158,23 @@ message Taint {
 
 // NodeDeployConfig contains the deploy configuration for a node
 message NodeDeployConfig {
-    Node node = 1;
-    repeated NodeRoleType roles = 2;
-    map<string, string> labels = 3;
-    repeated Taint taints = 4;
+  Node node = 1;
+  // role cloud be ["etcd", "master", "worker", ...]
+  repeated string roles = 2;
+  map<string, string> labels = 3;
+  repeated Taint taints = 4;
 }
 
 // DeployRequest contains the request of a deploy.
 message DeployRequest {
-  repeated NodeDeployConfig nodes = 1; 
-  ClusterConfig cluster = 2;
+  repeated NodeDeployConfig nodeConfigs = 1; 
+  ClusterConfig clusterConfig = 2;
 }
 
 // DeployReply contains the response of a deploy request.
 message DeployReply {
   bool acceptd = 1;
-  string message = 2;
+  Error err = 2;
 }
 
 // GetDeployResultRequest contains the request of getting deploy result.
@@ -158,30 +184,30 @@ message GetDeployResultRequest {
 
 // DeployComponent represents a component in a deploy
 message DeployComponent {
-    string name = 1;
-    string description = 2;
-    bool failureCanBeIgnored = 3;
+  string name = 1;
+  string description = 2;
+  bool failureCanBeIgnored = 3;
 }
 
 // DeployItem represents a deploy action of a component in a node for a role. 
 message DeployItem {
-    string role = 1;
-    string nodeName = 2;
-    DeployComponent component = 3;   
+  string role = 1;
+  string nodeName = 2;
+  DeployComponent component = 3;   
 }
 
 // DeployItemResult represents the deploy result of a component in a node for a role. 
 message DeployItemResult {
-    DeployItem deployItem = 1;
-    string status = 2;
-    string message = 3;
-    string logs = 4;
+  DeployItem deployItem = 1;
+  string status = 2;
+  Error err = 3;
+  string logs = 4;
 }
 
 // GetDeployResultReply represents the result of a deploy 
 message GetDeployResultReply {
   string status = 1;
-  string message = 2;
+  Error err = 2;
   repeated DeployItemResult items = 3;
 }
 
