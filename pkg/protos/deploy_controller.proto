@@ -124,17 +124,17 @@ message Keepalived {
   string netInterfaceName = 2;
 }
 
-message Locadbalancer {
+message Loadbalancer {
   string ip = 1;
   uint32 port = 2;
 }
 
 // KubeAPIServerConnect contains the info of how to connect to k8s API server
 message KubeAPIServerConnect {
-  // type could be ["firstMasterIP", "keepalived", "locadbalancer"]
+  // type could be ["firstMasterIP", "keepalived", "loadbalancer"]
   string type = 1;
   Keepalived keepalived = 2;
-  Locadbalancer locadbalancer = 3;
+  Loadbalancer loadbalancer = 3;
 }
 
 // ClusterConfig contains the configuraton of a cluster
@@ -182,21 +182,14 @@ message GetDeployResultRequest {
   bool withLogs = 1;
 }
 
-// DeployComponent represents a component in a deploy
-message DeployComponent {
-  string name = 1;
-  string description = 2;
-  bool failureCanBeIgnored = 3;
-}
-
-// DeployItem represents a deploy action of a component in a node for a role. 
+// DeployItem represents a deploy action in a node for a role. 
 message DeployItem {
   string role = 1;
   string nodeName = 2;
-  DeployComponent component = 3;   
+  bool failureCanBeIgnored = 3;
 }
 
-// DeployItemResult represents the deploy result of a component in a node for a role. 
+// DeployItemResult represents the deploy result in a node for a role. 
 message DeployItemResult {
   DeployItem deployItem = 1;
   string status = 2;
